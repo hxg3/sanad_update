@@ -1,16 +1,19 @@
-name: Release Manager
+name: Auto Publish Release
 on:
-  workflow_dispatch: # يسمح لك بتشغيله يدوياً للطوارئ
-  release:
-    types: [published, created]
+  push:
+    tags:
+      - 'v*' # سيعمل الأكشن فوراً عند رفع أي تاجم يبدأ بحرف v مثل v1.2.1
 
 jobs:
-  auto-publish:
+  publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Ensure Draft is Published
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Publish Draft Release
         uses: actions/github-script@v6
         with:
           script: |
@@ -18,13 +21,19 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
+            
+            // البحث عن المسودة (Draft) التي تتطابق مع التاج الحالي
             const draft = releases.find(r => r.draft === true);
+            
             if (draft) {
               await github.rest.repos.updateRelease({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 release_id: draft.id,
-                draft: false
+                draft: false,
+                make_latest: "true"
               });
-              console.log(`Successfully published release ${draft.tag_name}`);
+              console.log(`Successfully published: ${draft.tag_name}`);
+            } else {
+              console.log("No draft release found to publish.");
             }
