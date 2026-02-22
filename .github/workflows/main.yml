@@ -1,16 +1,30 @@
-name: Auto Publish Release
-
+name: Release Manager
 on:
+  workflow_dispatch: # يسمح لك بتشغيله يدوياً للطوارئ
   release:
-    types: [created] # سيعمل بمجرد إنشاء مسودة
+    types: [published, created]
 
 jobs:
-  publish:
+  auto-publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Publicize Release
-        uses: eregon/publish-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ensure Draft is Published
+        uses: actions/github-script@v6
         with:
-          release_id: ${{ github.event.release.id }}
+          script: |
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const draft = releases.find(r => r.draft === true);
+            if (draft) {
+              await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: draft.id,
+                draft: false
+              });
+              console.log(`Successfully published release ${draft.tag_name}`);
+            }
